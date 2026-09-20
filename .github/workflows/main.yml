@@ -1,2 +1,14 @@
-run-name: game concurrency:
-  
+name: build-apk
+
+# Fixes the previously malformed workflow file (`run-name: game concurrency:`
+# was invalid YAML, so GitHub Actions could never run anything in this repo).
+# The real Android build lives in .github/workflows/android-build.yml.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, genspark_ai_developer ]
+
+jobs:
+  android-build:
+    uses: ./.github/workflows/android-build.yml

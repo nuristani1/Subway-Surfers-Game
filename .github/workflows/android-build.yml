@@ -1,0 +1,70 @@
+name: android-build
+
+# Builds an Android APK on GitHub-hosted runners (no local Unity Editor needed).
+# Triggered manually from the Actions tab, and by main.yml on push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      unity_version:
+        description: "Override the Unity version to build with"
+        required: false
+        default: ""
+  workflow_call:
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Android-${{ github.ref }}-${{ hashFiles('ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-Android-${{ github.ref }}-
+            Library-Android-
+
+      - name: Resolve Unity version
+        id: unity
+        shell: bash
+        run: |
+          PINNED="$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+[a-z][0-9]+' ProjectSettings/ProjectVersion.txt | head -1)"
+          OVERRIDE="${{ github.event.inputs.unity_version }}"
+          VERSION="${OVERRIDE:-$PINNED}"
+          echo "Using Unity version: $VERSION (pinned: $PINNED)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: false
+          dotnet: true
+          haskell: true
+
+      - name: Build Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          unityVersion: ${{ steps.unity.outputs.version }}
+          allowDirtyBuild: true
+          buildName: Subway-Surfers
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Subway-Surfers-APK
+          path: build/Android/*.apk
+          if-no-files-found: error
+          retention-days: 30
