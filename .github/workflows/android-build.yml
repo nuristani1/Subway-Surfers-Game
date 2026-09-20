@@ -41,6 +41,19 @@ jobs:
           echo "Using Unity version: $VERSION (pinned: $PINNED)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Check Unity activation secrets
+        shell: bash
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -z "$UNITY_LICENSE" ] && { [ -z "$UNITY_EMAIL" ] || [ -z "$UNITY_PASSWORD" ]; }; then
+            echo "::error title=Missing Unity secrets::Add UNITY_LICENSE (or UNITY_EMAIL + UNITY_PASSWORD) under Settings -> Secrets and variables -> Actions, then re-run. Unity can only be activated on GitHub's runners, never in this sandbox."
+            exit 1
+          fi
+          echo "Unity activation credentials present."
+
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
         with:
@@ -68,3 +81,9 @@ jobs:
           path: build/Android/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload APK to the current release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/Android/*.apk
